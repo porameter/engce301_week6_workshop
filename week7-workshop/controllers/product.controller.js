@@ -1,160 +1,124 @@
 // ============================================
-// CONTROLLER LAYER - Products
+// SERVICE LAYER - Products
 // ============================================
 
-const ProductService = require('../services/product.service');
+const ProductDB = require('../database/products.db');
 
-class ProductController {
+class ProductService {
 
     // ===== GET ALL =====
-    static async getAllProducts(req, res) {
+    static async getAllProducts() {
         try {
-            const products = await ProductService.getAllProducts();
-
-            res.json({
-                success: true,
-                count: products.length,
-                data: products
-            });
+            const products = await ProductDB.findAll();
+            return products;
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                error: error.message
-            });
+            throw new Error(`Failed to get products: ${error.message}`);
         }
     }
 
     // ===== GET BY ID =====
-    static async getProductById(req, res) {
+    static async getProductById(id) {
         try {
-            const { id } = req.params;
-            const product = await ProductService.getProductById(id);
+            const product = await ProductDB.findById(id);
 
-            res.json({
-                success: true,
-                data: product
-            });
-        } catch (error) {
-            // not found → 404
-            if (error.message.includes('not found')) {
-                res.status(404).json({
-                    success: false,
-                    error: error.message
-                });
-            } else {
-                // อื่น ๆ → 500
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
+            if (!product) {
+                throw new Error('Product not found');
             }
+
+            return product;
+        } catch (error) {
+            throw error;
         }
     }
 
     // ===== CREATE =====
-    static async createProduct(req, res) {
+    static async createProduct(productData) {
         try {
-            // 1. รับข้อมูลจาก req.body
-            const productData = req.body;
+            // Validate required fields, price, stock
+            this.validateProductData(productData);
 
-            // 2. เรียก Service
-            const newProduct = await ProductService.createProduct(productData);
-
-            // 3. ส่ง Response
-            res.status(201).json({
-                success: true,
-                message: 'Product created successfully',
-                data: newProduct
-            });
+            // Create product
+            const newProduct = await ProductDB.create(productData);
+            return newProduct;
         } catch (error) {
-            // validation error → 400
-            res.status(400).json({
-                success: false,
-                error: error.message
-            });
+            throw new Error(`Failed to create product: ${error.message}`);
         }
     }
 
     // ===== UPDATE =====
-    static async updateProduct(req, res) {
+    static async updateProduct(id, productData) {
         try {
-            const { id } = req.params;
-            const productData = req.body;
-
-            const updatedProduct = await ProductService.updateProduct(id, productData);
-
-            res.json({
-                success: true,
-                message: 'Product updated successfully',
-                data: updatedProduct
-            });
-        } catch (error) {
-            if (error.message.includes('not found')) {
-                res.status(404).json({
-                    success: false,
-                    error: error.message
-                });
-            } else {
-                res.status(400).json({
-                    success: false,
-                    error: error.message
-                });
+            // 1. Check if product exists
+            const existingProduct = await ProductDB.findById(id);
+            if (!existingProduct) {
+                throw new Error('Product not found');
             }
+
+            // 2. Validate data
+            this.validateProductData(productData);
+
+            // 3. Update product
+            await ProductDB.update(id, productData);
+
+            // 4. Return updated product
+            return await ProductDB.findById(id);
+        } catch (error) {
+            throw error;
         }
     }
 
     // ===== DELETE =====
-    static async deleteProduct(req, res) {
+    static async deleteProduct(id) {
         try {
-            const { id } = req.params;
-
-            await ProductService.deleteProduct(id);
-
-            res.json({
-                success: true,
-                message: 'Product deleted successfully'
-            });
-        } catch (error) {
-            if (error.message.includes('not found')) {
-                res.status(404).json({
-                    success: false,
-                    error: error.message
-                });
-            } else {
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
+            // Check if product exists
+            const product = await ProductDB.findById(id);
+            if (!product) {
+                throw new Error('Product not found');
             }
+
+            // Delete product
+            const result = await ProductDB.delete(id);
+
+            if (result.changes === 0) {
+                throw new Error('Failed to delete product');
+            }
+
+            return { message: 'Product deleted successfully' };
+        } catch (error) {
+            throw error;
         }
     }
 
     // ===== SEARCH =====
-    static async searchProducts(req, res) {
+    static async searchProducts(keyword) {
         try {
-            const { q } = req.query;
-
-            if (!q) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Search keyword is required'
-                });
+            if (!keyword || keyword.trim() === '') {
+                throw new Error('Search keyword is required');
             }
 
-            const products = await ProductService.searchProducts(q);
-
-            res.json({
-                success: true,
-                count: products.length,
-                data: products
-            });
+            const products = await ProductDB.search(keyword);
+            return products;
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                error: error.message
-            });
+            throw error;
+        }
+    }
+
+    // ===== VALIDATION =====
+    static validateProductData(data) {
+        const { name, category_id, price, stock } = data;
+
+        if (!name || !category_id || price === undefined || stock === undefined) {
+            throw new Error('Missing required fields');
+        }
+
+        if (price < 0) {
+            throw new Error('Price must be greater than or equal to 0');
+        }
+
+        if (stock < 0) {
+            throw new Error('Stock must be greater than or equal to 0');
         }
     }
 }
 
-module.exports = ProductController;
+module.exports = ProductService;

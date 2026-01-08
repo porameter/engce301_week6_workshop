@@ -2,7 +2,7 @@
 // SERVICE LAYER - Products
 // ============================================
 
-const ProductDB = require('../database/products.db.js');
+const ProductDB = require('../database/products.db');
 
 class ProductService {
 
@@ -34,10 +34,10 @@ class ProductService {
     // ===== CREATE =====
     static async createProduct(productData) {
         try {
-            // 1. Validate required fields + price + stock
+            // Validate required fields, price, stock
             this.validateProductData(productData);
 
-            // 2. Create product
+            // Create product
             const newProduct = await ProductDB.create(productData);
             return newProduct;
         } catch (error) {
@@ -48,22 +48,20 @@ class ProductService {
     // ===== UPDATE =====
     static async updateProduct(id, productData) {
         try {
-            // 1. ตรวจสอบว่า product มีอยู่จริง
+            // 1. Check if product exists
             const existingProduct = await ProductDB.findById(id);
             if (!existingProduct) {
                 throw new Error('Product not found');
             }
 
-            // 2. Validate ข้อมูล
+            // 2. Validate data
             this.validateProductData(productData);
 
-            // 3. Update
+            // 3. Update product
             await ProductDB.update(id, productData);
 
-            // 4. Return product ที่ update แล้ว
-            const updatedProduct = await ProductDB.findById(id);
-            return updatedProduct;
-
+            // 4. Return updated product
+            return await ProductDB.findById(id);
         } catch (error) {
             throw error;
         }
@@ -72,16 +70,20 @@ class ProductService {
     // ===== DELETE =====
     static async deleteProduct(id) {
         try {
-            // 1. ตรวจสอบว่ามี product หรือไม่
-            const existingProduct = await ProductDB.findById(id);
-            if (!existingProduct) {
+            // Check if product exists
+            const product = await ProductDB.findById(id);
+            if (!product) {
                 throw new Error('Product not found');
             }
 
-            // 2. ลบ product
-            await ProductDB.delete(id);
+            // Delete product
+            const result = await ProductDB.delete(id);
 
-            return true;
+            if (result.changes === 0) {
+                throw new Error('Failed to delete product');
+            }
+
+            return { message: 'Product deleted successfully' };
         } catch (error) {
             throw error;
         }

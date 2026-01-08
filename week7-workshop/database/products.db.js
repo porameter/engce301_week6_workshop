@@ -2,7 +2,7 @@
 // DATABASE LAYER - Products
 // ============================================
 
-const db = require('./connection'); // ✔ ถูก
+const db = require('./connection');
 
 class ProductDatabase {
 
@@ -61,7 +61,6 @@ class ProductDatabase {
 
     // ===== READ ONE =====
     static findById(id) {
-        // JOIN กับ categories
         const sql = `
             SELECT 
                 p.*,
@@ -103,14 +102,14 @@ class ProductDatabase {
                     productData.category_id,
                     productData.price,
                     productData.stock,
-                    productData.description || '',
+                    productData.description,
                     id
                 ],
                 function (err) {
                     if (err) {
                         reject(err);
                     } else {
-                        resolve(this.changes); // จำนวนแถวที่ถูกแก้ไข
+                        resolve({ changes: this.changes });
                     }
                 }
             );
@@ -119,17 +118,14 @@ class ProductDatabase {
 
     // ===== DELETE =====
     static delete(id) {
-        const sql = `
-            DELETE FROM products
-            WHERE id = ?
-        `;
+        const sql = `DELETE FROM products WHERE id = ?`;
 
         return new Promise((resolve, reject) => {
             db.run(sql, [id], function (err) {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(this.changes); // จำนวนแถวที่ถูกลบ
+                    resolve({ changes: this.changes });
                 }
             });
         });
